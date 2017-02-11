@@ -10,14 +10,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from incf.countryutils import transformations as tx
+from lifelines import KaplanMeierFitter
 
 log = logging.getLogger(__name__)
 
 
 colormap = {'Africa': '#b891a1',
-            'Europe': '#7b7b96',
+            'Europe': '#6774a6',
             'Asia': '#98b68f',
-            'North America': '#fff8e2',
+            'North America': '#ffe07c',
             'South America': '#928457',
             'Oceania': '#434363'}
 
@@ -116,7 +117,7 @@ def timedelta_in_years(td):
 
 def plot_entries(member_data, relative_dates=False):
 
-    fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
     n_entries = len(member_data)
 
     tdiffs = []
@@ -130,9 +131,9 @@ def plot_entries(member_data, relative_dates=False):
             ax.plot(career, i, 'k|')
         else:
             dates = [x[0] for x in v]
-        colors = [colormap[continent_from_country(x[1])] if x[1] else 'w' for x in v]
-        ax.scatter(dates, [i]*len(v), s=min(100, max(30, 5000/n_entries)), c=colors, alpha=1, zorder=100)
-        ax.plot([min(dates), max(dates)], [i, i], lw=0.5, alpha=0.6, color='k', zorder=0)
+        colors = [colormap[continent_from_country(x[1])] if x[1] else 'lightgray' for x in v]
+        ax.scatter(dates, [i]*len(v), s=min(100, max(50, 5000/n_entries)), c=colors, alpha=0.5, zorder=100)
+        ax.plot([min(dates), max(dates)], [i, i], lw=0.5, alpha=0.75, color='k', zorder=0)
 
     ax.set(yticks=range(n_entries),
            ylim=(-0.5, n_entries))
@@ -144,9 +145,10 @@ def plot_entries(member_data, relative_dates=False):
 
     fig.set_tight_layout(True)
 
-    plt.figure('time_differences')
-    plt.hist(tdiffs, color='gray', alpha=0.8, bins=200)
+    fig = plt.figure('time_differences')
+    plt.hist(tdiffs, color='gray', alpha=0.8, bins=100)
     plt.gca().set_xlabel('Years between publications')
+    fig.set_tight_layout(True)
 
 
 def random_subset(members, n=50):
@@ -166,7 +168,7 @@ if __name__ == '__main__':
         members = pickle.load(fp)
     log.info('%s unique members', len(members.keys()))
 
-    first_only = False  # some erroneous merges (J Cohen, A Ouedraogo) but better than ~10% split entries
+    first_only = True  # some erroneous merges (J Cohen, A Ouedraogo) but better than ~10% split entries
     members = merge_records(members, first_only=first_only)
     log.info('%s unique members (after merging on %sinitials)',
              len(members.keys()), 'first ' if first_only else '')
@@ -183,18 +185,29 @@ if __name__ == '__main__':
     # continent = 'Africa'  # Asia, North America, Europe, etc.
     # df = df[df.FirstContinent == continent]
 
-    country = 'KE'  # BF, KE, AU, TZ, NG, TH, etc.
-    df = df[(df.FirstCountry == country)]
-    # df = df[(df.MainCountry == country)]
+    country = 'TZ'  # BF, KE, AU, TZ, NG, TH, ZM, IN, CN, etc.
+    # df = df[(df.FirstCountry == country)]
+    df = df[(df.MainCountry == country)]
 
     min_pubs = 2
     df = df[df.Publications >= min_pubs]
 
-    # df = df[df.FirstDate > datetime.date(2008, 1, 1)]
-    df = df[df.FirstDate < datetime.date(2015, 7, 1)]
+    df = df[df.FirstDate > datetime.date(2008, 1, 1)]
+    df = df[df.FirstDate < datetime.date(2014, 1, 1)]
 
     df['CareerDuration'] = df.LastDate - df.FirstDate
+    df['DepartureObserved'] = (datetime.date.today() - df.LastDate) > datetime.timedelta(days=365 * 1.5)
     df.sort_values(by='CareerDuration', ascending=False, inplace=True)
+
+    fig = plt.figure('Career Duration')
+    ax = plt.gca()
+    kmf = KaplanMeierFitter()
+    kmf.fit(df.CareerDuration.map(timedelta_in_years),
+            event_observed=df.DepartureObserved,
+            label='Career Duration')
+    kmf.plot(ax=ax)
+    ax.set(ylim=(0, 1), xlabel='')
+    fig.set_tight_layout(True)
 
     # df = df.xs('Ouedraogo', level='LastName', drop_level=False)
 
