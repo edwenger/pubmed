@@ -87,6 +87,9 @@ class Community(object):
             for affiliation in author.affiliations:
                 affiliation_country = (article.date, affiliation.country)
                 self.members[author.name].append(affiliation_country)
+            if not author.affiliations:
+                # still append a dated publication with no country
+                self.members[author.name].append((article.date, None))
 
 
 if __name__ == '__main__':
@@ -99,7 +102,7 @@ if __name__ == '__main__':
     community.query('malaria', retmax=100000, sort_by='date')  # date, relevance
     # summary = {' '.join(k): [(t.strftime('%Y-%m'), x) for t, x in v] for k, v in community.members.items()}
     # print(json.dumps(summary, indent=4))
-    with open(os.path.join('data', 'members.p'), 'wb') as fp:
+    with open(os.path.join('data', 'members_all.p'), 'wb') as fp:
         pickle.dump(community.members, fp)
 
     # Pretty print the first paper in full

@@ -24,14 +24,15 @@ test_names = [
     ('Edward A', 'Wenger'),
     ('Philip A', 'Eckhoff'),
     ('Jaline', 'Gerardin'),
-    ('Caitlin A', 'Bever'),
-    ('Thomas P', 'Eisele'),
     ('John M', 'Miller'),
     ('Kafula', 'Silumbe'),
     ('Teun', 'Bousema'),
     ('Gerry', 'Killeen'),
     (u'Andr\u00E9 Lin', u'Ou\u00E9draogo'),
-    ('Tom', 'Smith')
+    ('Tom', 'Smith'),
+    ('John', 'Marshall'),
+    ('Michael', 'White'),
+    ('Simon', 'Hay')
 ]
 
 
@@ -154,10 +155,10 @@ if __name__ == '__main__':
     # continent = 'Africa'  # Asia, North America, Europe, etc.
     # df = df[df.FirstContinent == continent]
 
-    country = 'BF'  # BF, KE, AU, TZ, NG, etc.
+    country = 'KH'  # BF, KE, AU, TZ, NG, etc.
     df = df[(df.FirstCountry == country)]
 
-    min_pubs = 5
+    min_pubs = 2
     df = df[df.Publications >= min_pubs]
 
     # df = df.xs('Ouedraogo', level='LastName', drop_level=False)
