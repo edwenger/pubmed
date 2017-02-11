@@ -1,5 +1,7 @@
 import logging
 from collections import Counter, OrderedDict, defaultdict
+import datetime
+from itertools import tee, izip
 import os
 import unicodedata
 
@@ -101,14 +103,33 @@ def parse_member_info(members):
     return pd.DataFrame.from_records(all_member_info).set_index(['ForeName', 'LastName']).sort_values(by='FirstDate')
 
 
-def plot_entries(member_data):
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return izip(a, b)
+
+
+def timedelta_in_years(td):
+    return td.total_seconds() / 3600 / 24 / 365.242199
+
+
+def plot_entries(member_data, relative_dates=False):
 
     fig, ax = plt.subplots(1, 1, figsize=(15, 10))
     n_entries = len(member_data)
 
+    tdiffs = []
+
     for i, v in enumerate(member_data.values()):
         log.debug(v)
-        dates = [x[0] for x in v]
+        tdiffs += [timedelta_in_years(b[0] - a[0]) for a, b in pairwise(v)]
+        if relative_dates:
+            dates = [timedelta_in_years(x[0] - v[0][0]) for x in v]
+            career = timedelta_in_years(datetime.date.today() - v[0][0])
+            ax.plot(career, i, 'k|')
+        else:
+            dates = [x[0] for x in v]
         colors = [colormap[continent_from_country(x[1])] if x[1] else 'w' for x in v]
         ax.scatter(dates, [i]*len(v), s=min(100, max(30, 5000/n_entries)), c=colors, alpha=1, zorder=100)
         ax.plot([min(dates), max(dates)], [i, i], lw=0.5, alpha=0.6, color='k', zorder=0)
@@ -118,7 +139,14 @@ def plot_entries(member_data):
 
     ax.set_yticklabels([' '.join(k) for k in member_data.keys()], fontsize=7)
 
+    if relative_dates:
+        ax.set(xlim=(-0.1, ax.get_xlim()[1]))
+
     fig.set_tight_layout(True)
+
+    plt.figure('time_differences')
+    plt.hist(tdiffs, color='gray', alpha=0.8, bins=200)
+    plt.gca().set_xlabel('Years between publications')
 
 
 def random_subset(members, n=50):
@@ -138,7 +166,7 @@ if __name__ == '__main__':
         members = pickle.load(fp)
     log.info('%s unique members', len(members.keys()))
 
-    first_only = True  # some erroneous merges (J Cohen) but better than ~10% split entries
+    first_only = False  # some erroneous merges (J Cohen, A Ouedraogo) but better than ~10% split entries
     members = merge_records(members, first_only=first_only)
     log.info('%s unique members (after merging on %sinitials)',
              len(members.keys()), 'first ' if first_only else '')
@@ -155,11 +183,18 @@ if __name__ == '__main__':
     # continent = 'Africa'  # Asia, North America, Europe, etc.
     # df = df[df.FirstContinent == continent]
 
-    country = 'KH'  # BF, KE, AU, TZ, NG, etc.
+    country = 'KE'  # BF, KE, AU, TZ, NG, TH, etc.
     df = df[(df.FirstCountry == country)]
+    # df = df[(df.MainCountry == country)]
 
     min_pubs = 2
     df = df[df.Publications >= min_pubs]
+
+    # df = df[df.FirstDate > datetime.date(2008, 1, 1)]
+    df = df[df.FirstDate < datetime.date(2015, 7, 1)]
+
+    df['CareerDuration'] = df.LastDate - df.FirstDate
+    df.sort_values(by='CareerDuration', ascending=False, inplace=True)
 
     # df = df.xs('Ouedraogo', level='LastName', drop_level=False)
 
@@ -175,5 +210,6 @@ if __name__ == '__main__':
 
     subset = subset_from_names(members, df.index.values)
 
-    plot_entries(subset)
+    relative_dates = False  # plot careers with respect to first publication
+    plot_entries(subset, relative_dates=relative_dates)
     plt.show()
